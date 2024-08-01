@@ -1,7 +1,10 @@
+from pymongo import MongoClient
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from dateutil import parser
+import config
+import db_manager
 
 def convert_timestamp(timestamp_str):
     # Remove timezone abbreviation if present
@@ -53,12 +56,13 @@ def scrape_techcrunch(company_name):
                     timestamp = time_tag.get_text(strip=True) if time_tag else 'No timestamp available'
                     formatted_date = convert_timestamp(timestamp) if timestamp != 'No timestamp available' else 'No date available'
 
-                    page_articles.append({
-                        'company': company_name,
-                        'title': title,
-                        'link': link,
-                        'timestamp': formatted_date
-                    })
+                    if formatted_date != 'No date available':
+                        page_articles.append({
+                            'company': company_name,
+                            'title': title,
+                            'link': link,
+                            'timestamp': formatted_date
+                        })
 
         if not page_articles:
             break
@@ -66,10 +70,17 @@ def scrape_techcrunch(company_name):
         articles.extend(page_articles)
         page_number += 1
 
-    return pd.DataFrame(articles)
+    return articles  # Return a list of dictionaries instead of a DataFrame
+
+def main():
+    company_name = input("Enter the company name: ").strip()
+    
+    # Scrape the articles
+    articles = scrape_techcrunch(company_name)
+    
+    # Save the articles to MongoDB
+    db_manager.save_articles('news', articles)
+    print(f"Successfully saved {len(articles)} articles to the database.")
 
 if __name__ == "__main__":
-    company_name = input("Enter the company name: ").strip()
-    news_df = scrape_techcrunch(company_name)
-    news_df.to_csv(f"{company_name}_news.csv", index=False)
-    print(news_df)
+    main()
